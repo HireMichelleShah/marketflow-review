@@ -200,8 +200,10 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);
     <div class="stat"><span class="stat-num s-approved" id="s-approved">0</span> Approved</div>
     <div class="stat"><span class="stat-num s-rejected" id="s-rejected">0</span> Needs Changes</div>
     <div class="stat"><span class="stat-num s-pending" id="s-pending">12</span> Pending</div>
-    <button class="export-btn" onclick="exportFeedback()">Export Feedback JSON</button>
-    <button class="export-btn" onclick="autoSyncFeedback()" style="background:var(--teal);color:var(--navy)">Copy Summary to Clipboard</button>
+    <span id="sync-status" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:4px;background:rgba(0,0,0,0.05)">Connecting...</span>
+    <a id="share-link" href="#" style="display:none;font-size:11px;font-weight:600;color:var(--teal);margin-left:4px" onclick="navigator.clipboard.writeText(this.href);toast('Share link copied!');return false">Share link</a>
+    <button class="export-btn" onclick="exportFeedback()">Export JSON</button>
+    <button class="export-btn" onclick="autoSyncFeedback()" style="background:var(--teal);color:var(--navy)">Copy Summary</button>
   </div>
 </div>
 
@@ -317,7 +319,7 @@ function toast(m){const t=document.getElementById('toast');t.textContent=m;t.cla
 
 // ===== WELCOME =====
 document.getElementById('reviewer-select').addEventListener('change',function(){document.getElementById('start-btn').disabled=!this.value});
-function startReview(){reviewer=document.getElementById('reviewer-select').value;if(!reviewer)return;document.getElementById('welcome').classList.add('hidden');document.getElementById('header-reviewer').textContent=reviewer;renderReview();updateCounts()}
+function startReview(){reviewer=document.getElementById('reviewer-select').value;if(!reviewer)return;document.getElementById('welcome').classList.add('hidden');document.getElementById('header-reviewer').textContent=reviewer;renderReview();updateCounts();cloudPull().then(()=>cloudSync()).then(()=>updateShareLink())}
 function switchReviewer(){document.getElementById('welcome').classList.remove('hidden');document.getElementById('reviewer-select').value='';document.getElementById('start-btn').disabled=true}
 
 // ===== TABS =====
@@ -327,19 +329,26 @@ function switchTab(tab){document.querySelectorAll('.tab-btn').forEach(b=>b.class
 function getSelectedImage(postId){return(state.imageSelections[postId]&&state.imageSelections[postId][reviewer])??0}
 function selectImage(postId,idx){if(!state.imageSelections[postId])state.imageSelections[postId]={};state.imageSelections[postId][reviewer]=idx;saveState();renderReview()}
 
-// ===== VOTING =====
-let pendingVotes={};
-function vote(pid,v){pendingVotes[pid]=v;const card=document.querySelector(`#post-${pid} .card-inner`);if(card){card.className='card-inner '+(v==='approve'?'status-approved':'status-rejected');card.querySelector('.vote-btn.approve').classList.toggle('active',v==='approve');card.querySelector('.vote-btn.reject').classList.toggle('active',v==='reject')}}
-
-function submitFeedback(pid){
-  const v=pendingVotes[pid];
-  if(!v){const existing=((state.feedback[pid])||[]).find(f=>f.reviewer===reviewer);if(!existing){toast('Please vote first');return}}
-  const notes=document.getElementById('notes-'+pid)?.value?.trim()||'';
+// ===== VOTING (auto-saves immediately) =====
+function vote(pid,v){
   if(!state.feedback[pid])state.feedback[pid]=[];
   const idx=state.feedback[pid].findIndex(f=>f.reviewer===reviewer);
-  const entry={reviewer,vote:v||(idx>=0?state.feedback[pid][idx].vote:'approve'),notes,timestamp:new Date().toISOString(),selectedImage:getSelectedImage(pid)};
+  const existingNotes=idx>=0?state.feedback[pid][idx].notes:'';
+  const notes=document.getElementById('notes-'+pid)?.value?.trim()||existingNotes||'';
+  const entry={reviewer,vote:v,notes,timestamp:new Date().toISOString(),selectedImage:getSelectedImage(pid)};
   if(idx>=0)state.feedback[pid][idx]=entry;else state.feedback[pid].push(entry);
-  saveState();toast('Feedback saved for Post '+pid);pendingVotes={};renderReview();updateCounts()
+  saveState();cloudSync();
+  toast(v==='approve'?'Approved! ✓':'Marked for changes');
+  renderReview();updateCounts();
+}
+
+function submitFeedback(pid){
+  const pf=state.feedback[pid]||[];
+  const my=pf.find(f=>f.reviewer===reviewer);
+  if(!my){toast('Vote first, then add notes');return}
+  const notes=document.getElementById('notes-'+pid)?.value?.trim()||'';
+  my.notes=notes;my.timestamp=new Date().toISOString();
+  saveState();cloudSync();toast('Notes saved for Post '+pid);renderReview()
 }
 
 // ===== SCHEDULING =====
@@ -388,7 +397,7 @@ function renderReview(){
       </div>
       <div class="fb-input">
         <textarea id="notes-${p.id}" placeholder="Add notes...">${my?.notes||''}</textarea>
-        <button class="save-fb" onclick="submitFeedback(${p.id})">Save</button>
+        <button class="save-fb" onclick="submitFeedback(${p.id})">Save Notes</button>
       </div>
     </div>
     ${pf.length?`<div class="prev-feedback"><h4>Team Feedback (${pf.length})</h4>${pf.map(f=>`<div class="fb-entry"><span class="fb-name">${f.reviewer}</span><span class="fb-vote">${f.vote==='approve'?'\u{1F44D}':'\u{1F44E}'}</span><span class="fb-note">${f.notes||'<em style="color:#bbb">No notes</em>'}</span><span class="fb-time">${new Date(f.timestamp).toLocaleDateString()}</span></div>`).join('')}</div>`:''}
@@ -528,6 +537,79 @@ function autoSyncFeedback(){
     navigator.clipboard.writeText('MarketFlow Feedback Sync — '+new Date().toISOString()+'\n'+summary.join('\n')).then(()=>toast('Feedback summary copied to clipboard'));
   }
 }
+
+// ===== CLOUD SYNC (shared state between reviewers) =====
+const CLOUD_BIN_URL='https://jsonblob.com/api/jsonBlob';
+let cloudBlobId=localStorage.getItem('mf_cloud_id')||'';
+let syncInProgress=false;
+let lastSyncTime=0;
+
+async function cloudSync(){
+  if(syncInProgress||!reviewer)return;
+  const now=Date.now();if(now-lastSyncTime<2000)return;// debounce
+  syncInProgress=true;lastSyncTime=now;
+  try{
+    const payload={feedback:state.feedback,imageSelections:state.imageSelections,schedules:state.schedules,lastUpdated:new Date().toISOString(),lastUpdatedBy:reviewer};
+    if(cloudBlobId){
+      await fetch(CLOUD_BIN_URL+'/'+cloudBlobId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    }else{
+      const res=await fetch(CLOUD_BIN_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(res.ok){cloudBlobId=res.headers.get('Location')?.split('/').pop()||'';if(cloudBlobId){localStorage.setItem('mf_cloud_id',cloudBlobId);updateShareLink()}}
+    }
+    document.getElementById('sync-status').textContent='Synced ✓';
+    document.getElementById('sync-status').style.color='var(--green)';
+  }catch(e){
+    document.getElementById('sync-status').textContent='Local only';
+    document.getElementById('sync-status').style.color='var(--yellow)';
+  }
+  syncInProgress=false;
+}
+
+async function cloudPull(){
+  if(!cloudBlobId)return;
+  try{
+    const res=await fetch(CLOUD_BIN_URL+'/'+cloudBlobId);
+    if(res.ok){
+      const cloud=await res.json();
+      // Merge: cloud feedback from OTHER reviewers + local feedback from current reviewer
+      if(cloud.feedback){
+        Object.keys(cloud.feedback).forEach(pid=>{
+          if(!state.feedback[pid])state.feedback[pid]=[];
+          (cloud.feedback[pid]||[]).forEach(cf=>{
+            if(cf.reviewer!==reviewer){
+              const idx=state.feedback[pid].findIndex(f=>f.reviewer===cf.reviewer);
+              if(idx>=0)state.feedback[pid][idx]=cf;else state.feedback[pid].push(cf);
+            }
+          });
+        });
+      }
+      if(cloud.schedules){Object.assign(state.schedules,cloud.schedules)}
+      saveState();renderReview();updateCounts();
+      document.getElementById('sync-status').textContent='Synced ✓';
+      document.getElementById('sync-status').style.color='var(--green)';
+    }
+  }catch(e){
+    document.getElementById('sync-status').textContent='Offline';
+    document.getElementById('sync-status').style.color='var(--yellow)';
+  }
+}
+
+function updateShareLink(){
+  const el=document.getElementById('share-link');
+  if(el&&cloudBlobId){
+    const url=window.location.href.split('?')[0]+'?sync='+cloudBlobId;
+    el.href=url;el.textContent='Share this link';el.style.display='inline';
+    navigator.clipboard?.writeText(url);
+  }
+}
+
+// Check URL for shared sync ID
+const urlParams=new URLSearchParams(window.location.search);
+const sharedSync=urlParams.get('sync');
+if(sharedSync){cloudBlobId=sharedSync;localStorage.setItem('mf_cloud_id',cloudBlobId)}
+
+// Auto-pull every 30 seconds
+setInterval(()=>{if(reviewer)cloudPull()},30000);
 
 // ===== INIT =====
 loadState();
