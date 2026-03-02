@@ -200,8 +200,8 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);
     <div class="stat"><span class="stat-num s-approved" id="s-approved">0</span> Approved</div>
     <div class="stat"><span class="stat-num s-rejected" id="s-rejected">0</span> Needs Changes</div>
     <div class="stat"><span class="stat-num s-pending" id="s-pending">12</span> Pending</div>
-    <span id="sync-status" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:4px;background:rgba(0,0,0,0.05)">Connecting...</span>
-    <a id="share-link" href="#" style="display:none;font-size:11px;font-weight:600;color:var(--teal);margin-left:4px" onclick="navigator.clipboard.writeText(this.href);toast('Share link copied!');return false">Share link</a>
+    <span id="sync-status" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:4px;background:rgba(0,0,0,0.05)">Google Sheets</span>
+    <a id="share-link" href="https://docs.google.com/spreadsheets/d/1GoMM57P7oRj3BUL2abMeHC0Kgb9dSU0BCrFO_XDorlc/edit" target="_blank" style="font-size:11px;font-weight:600;color:var(--teal);margin-left:4px">View Sheet</a>
     <button class="export-btn" onclick="exportFeedback()">Export JSON</button>
     <button class="export-btn" onclick="autoSyncFeedback()" style="background:var(--teal);color:var(--navy)">Copy Summary</button>
   </div>
@@ -310,8 +310,10 @@ const weekThemes={1:{t:"Week 1: Credibility & Problem Awareness",d:"Establish ex
 
 // ===== STATE =====
 const SK='mf_review_v2';
+const SHEETS_API='https://script.google.com/macros/s/AKfycbymYXTwkv0n5NUn6pNhYmhJ8bbxYfSq_npD5URK5uCk8ZBVK0SSh9Gw4vNGFVInlf_F/exec';
 let reviewer='';
 let state;
+let syncInProgress=false;
 
 function loadState(){try{state=JSON.parse(localStorage.getItem(SK))||{}}catch{state={}} if(!state.feedback)state.feedback={};if(!state.imageSelections)state.imageSelections={};if(!state.schedules)state.schedules={};return state}
 function saveState(){localStorage.setItem(SK,JSON.stringify(state))}
@@ -319,7 +321,7 @@ function toast(m){const t=document.getElementById('toast');t.textContent=m;t.cla
 
 // ===== WELCOME =====
 document.getElementById('reviewer-select').addEventListener('change',function(){document.getElementById('start-btn').disabled=!this.value});
-function startReview(){reviewer=document.getElementById('reviewer-select').value;if(!reviewer)return;document.getElementById('welcome').classList.add('hidden');document.getElementById('header-reviewer').textContent=reviewer;renderReview();updateCounts();cloudPull().then(()=>cloudSync()).then(()=>updateShareLink())}
+function startReview(){reviewer=document.getElementById('reviewer-select').value;if(!reviewer)return;document.getElementById('welcome').classList.add('hidden');document.getElementById('header-reviewer').textContent=reviewer;renderReview();updateCounts();pullFromSheets()}
 function switchReviewer(){document.getElementById('welcome').classList.remove('hidden');document.getElementById('reviewer-select').value='';document.getElementById('start-btn').disabled=true}
 
 // ===== TABS =====
@@ -329,15 +331,18 @@ function switchTab(tab){document.querySelectorAll('.tab-btn').forEach(b=>b.class
 function getSelectedImage(postId){return(state.imageSelections[postId]&&state.imageSelections[postId][reviewer])??0}
 function selectImage(postId,idx){if(!state.imageSelections[postId])state.imageSelections[postId]={};state.imageSelections[postId][reviewer]=idx;saveState();renderReview()}
 
-// ===== VOTING (auto-saves immediately) =====
+// ===== VOTING (auto-saves immediately to Google Sheets) =====
 function vote(pid,v){
   if(!state.feedback[pid])state.feedback[pid]=[];
   const idx=state.feedback[pid].findIndex(f=>f.reviewer===reviewer);
   const existingNotes=idx>=0?state.feedback[pid][idx].notes:'';
   const notes=document.getElementById('notes-'+pid)?.value?.trim()||existingNotes||'';
-  const entry={reviewer,vote:v,notes,timestamp:new Date().toISOString(),selectedImage:getSelectedImage(pid)};
+  const ts=new Date().toISOString();
+  const si=getSelectedImage(pid);
+  const entry={reviewer,vote:v,notes,timestamp:ts,selectedImage:si};
   if(idx>=0)state.feedback[pid][idx]=entry;else state.feedback[pid].push(entry);
-  saveState();cloudSync();
+  saveState();
+  pushToSheets({postId:pid,reviewer,vote:v,notes,timestamp:ts,selectedImage:si});
   toast(v==='approve'?'Approved! ✓':'Marked for changes');
   renderReview();updateCounts();
 }
@@ -348,7 +353,9 @@ function submitFeedback(pid){
   if(!my){toast('Vote first, then add notes');return}
   const notes=document.getElementById('notes-'+pid)?.value?.trim()||'';
   my.notes=notes;my.timestamp=new Date().toISOString();
-  saveState();cloudSync();toast('Notes saved for Post '+pid);renderReview()
+  saveState();
+  pushToSheets({postId:pid,reviewer,vote:my.vote,notes,timestamp:my.timestamp,selectedImage:my.selectedImage||0});
+  toast('Notes saved for Post '+pid);renderReview()
 }
 
 // ===== SCHEDULING =====
@@ -538,78 +545,57 @@ function autoSyncFeedback(){
   }
 }
 
-// ===== CLOUD SYNC (shared state between reviewers) =====
-const CLOUD_BIN_URL='https://jsonblob.com/api/jsonBlob';
-let cloudBlobId=localStorage.getItem('mf_cloud_id')||'';
-let syncInProgress=false;
-let lastSyncTime=0;
-
-async function cloudSync(){
-  if(syncInProgress||!reviewer)return;
-  const now=Date.now();if(now-lastSyncTime<2000)return;// debounce
-  syncInProgress=true;lastSyncTime=now;
+// ===== GOOGLE SHEETS SYNC =====
+async function pushToSheets(data){
+  if(syncInProgress)return;
+  syncInProgress=true;
   try{
-    const payload={feedback:state.feedback,imageSelections:state.imageSelections,schedules:state.schedules,lastUpdated:new Date().toISOString(),lastUpdatedBy:reviewer};
-    if(cloudBlobId){
-      await fetch(CLOUD_BIN_URL+'/'+cloudBlobId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    }else{
-      const res=await fetch(CLOUD_BIN_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      if(res.ok){cloudBlobId=res.headers.get('Location')?.split('/').pop()||'';if(cloudBlobId){localStorage.setItem('mf_cloud_id',cloudBlobId);updateShareLink()}}
-    }
-    document.getElementById('sync-status').textContent='Synced ✓';
+    await fetch(SHEETS_API,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)}).catch(()=>{});
+    document.getElementById('sync-status').textContent='Saved to Sheet ✓';
     document.getElementById('sync-status').style.color='var(--green)';
   }catch(e){
     document.getElementById('sync-status').textContent='Local only';
     document.getElementById('sync-status').style.color='var(--yellow)';
+    console.log('Sheet sync error:',e);
   }
   syncInProgress=false;
 }
 
-async function cloudPull(){
-  if(!cloudBlobId)return;
+async function pullFromSheets(){
   try{
-    const res=await fetch(CLOUD_BIN_URL+'/'+cloudBlobId);
+    const res=await fetch(SHEETS_API);
     if(res.ok){
-      const cloud=await res.json();
-      // Merge: cloud feedback from OTHER reviewers + local feedback from current reviewer
-      if(cloud.feedback){
-        Object.keys(cloud.feedback).forEach(pid=>{
+      const data=await res.json();
+      if(data.status==='ok'&&data.feedback){
+        // Merge cloud feedback into local state
+        Object.keys(data.feedback).forEach(pid=>{
           if(!state.feedback[pid])state.feedback[pid]=[];
-          (cloud.feedback[pid]||[]).forEach(cf=>{
-            if(cf.reviewer!==reviewer){
-              const idx=state.feedback[pid].findIndex(f=>f.reviewer===cf.reviewer);
-              if(idx>=0)state.feedback[pid][idx]=cf;else state.feedback[pid].push(cf);
+          (data.feedback[pid]||[]).forEach(cf=>{
+            const idx=state.feedback[pid].findIndex(f=>f.reviewer===cf.reviewer);
+            if(idx>=0){
+              // Update if cloud is newer
+              if(!state.feedback[pid][idx].timestamp||cf.timestamp>state.feedback[pid][idx].timestamp){
+                state.feedback[pid][idx]={reviewer:cf.reviewer,vote:cf.vote,notes:cf.notes||'',timestamp:cf.timestamp,selectedImage:cf.selectedImage||0};
+              }
+            }else{
+              state.feedback[pid].push({reviewer:cf.reviewer,vote:cf.vote,notes:cf.notes||'',timestamp:cf.timestamp,selectedImage:cf.selectedImage||0});
             }
           });
         });
+        saveState();renderReview();updateCounts();
+        document.getElementById('sync-status').textContent='Synced ✓';
+        document.getElementById('sync-status').style.color='var(--green)';
       }
-      if(cloud.schedules){Object.assign(state.schedules,cloud.schedules)}
-      saveState();renderReview();updateCounts();
-      document.getElementById('sync-status').textContent='Synced ✓';
-      document.getElementById('sync-status').style.color='var(--green)';
     }
   }catch(e){
     document.getElementById('sync-status').textContent='Offline';
     document.getElementById('sync-status').style.color='var(--yellow)';
+    console.log('Sheet pull error:',e);
   }
 }
-
-function updateShareLink(){
-  const el=document.getElementById('share-link');
-  if(el&&cloudBlobId){
-    const url=window.location.href.split('?')[0]+'?sync='+cloudBlobId;
-    el.href=url;el.textContent='Share this link';el.style.display='inline';
-    navigator.clipboard?.writeText(url);
-  }
-}
-
-// Check URL for shared sync ID
-const urlParams=new URLSearchParams(window.location.search);
-const sharedSync=urlParams.get('sync');
-if(sharedSync){cloudBlobId=sharedSync;localStorage.setItem('mf_cloud_id',cloudBlobId)}
 
 // Auto-pull every 30 seconds
-setInterval(()=>{if(reviewer)cloudPull()},30000);
+setInterval(()=>{if(reviewer)pullFromSheets()},30000);
 
 // ===== INIT =====
 loadState();
