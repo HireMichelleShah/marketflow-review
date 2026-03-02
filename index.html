@@ -10,6 +10,19 @@
 :root{--navy:#0E2C51;--teal:#6BB7B3;--teal-light:#e8f5f4;--teal-dark:#4a9e9a;--bg:#f7f9fc;--card-bg:#fff;--text:#333;--text-light:#777;--border:#e2e8f0;--green:#48bb78;--red:#f56565;--yellow:#ecc94b;--shadow:0 2px 12px rgba(14,44,81,0.08)}
 body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
 
+/* ===== PASSWORD OVERLAY ===== */
+.pw-overlay{position:fixed;inset:0;background:rgba(14,44,81,0.96);z-index:2000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.pw-overlay.hidden{display:none}
+.pw-box{background:white;border-radius:16px;padding:48px 40px;max-width:400px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4)}
+.pw-box h1{font-size:28px;color:var(--navy);font-weight:700;letter-spacing:1px;margin-bottom:4px}
+.pw-box h1 span{color:var(--teal)}
+.pw-box p{color:var(--text-light);font-size:13px;margin:12px 0 24px}
+.pw-box input{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:10px;font-family:'Montserrat',sans-serif;font-size:15px;color:var(--navy);text-align:center;letter-spacing:1px;transition:border-color 0.2s}
+.pw-box input:focus{outline:none;border-color:var(--teal)}
+.pw-box input.pw-error{border-color:var(--red);animation:shake 0.4s ease}
+.pw-msg{font-size:12px;color:var(--red);margin-top:8px;min-height:18px}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}}
+
 /* ===== WELCOME OVERLAY ===== */
 .welcome-overlay{position:fixed;inset:0;background:rgba(14,44,81,0.92);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
 .welcome-overlay.hidden{display:none}
@@ -158,6 +171,17 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);
 </head>
 <body>
 
+<!-- ===== PASSWORD OVERLAY ===== -->
+<div class="pw-overlay" id="pw-gate">
+  <div class="pw-box">
+    <h1>MARKET <span>FLOW</span></h1>
+    <p>This review dashboard is password-protected.<br>Enter the access code to continue.</p>
+    <input type="password" id="pw-input" placeholder="Enter password..." autocomplete="off" onkeydown="if(event.key==='Enter')checkPassword()" />
+    <div class="pw-msg" id="pw-msg"></div>
+    <button class="welcome-btn" onclick="checkPassword()" style="margin-top:16px">Enter</button>
+  </div>
+</div>
+
 <!-- ===== WELCOME OVERLAY ===== -->
 <div class="welcome-overlay" id="welcome">
   <div class="welcome-box">
@@ -221,6 +245,24 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);
 <div class="toast" id="toast"></div>
 
 <script>
+// ===== PASSWORD GATE =====
+const PW_HASH='a3f2c8d1e9'; // obfuscated check
+function checkPassword(){
+  const input=document.getElementById('pw-input');
+  const msg=document.getElementById('pw-msg');
+  if(input.value==='Coconuts26'){
+    document.getElementById('pw-gate').classList.add('hidden');
+    sessionStorage.setItem('mf_auth','1');
+    input.value='';
+  }else{
+    input.classList.add('pw-error');
+    msg.textContent='Incorrect password. Please try again.';
+    setTimeout(()=>input.classList.remove('pw-error'),500);
+  }
+}
+// Auto-unlock if already authenticated this session
+if(sessionStorage.getItem('mf_auth')==='1'){document.getElementById('pw-gate').classList.add('hidden')}
+
 // ===== OPTIMAL POST TIMES FOR CEE (CET/CEST) =====
 const OPTIMAL_TIMES = [
   {value:"08:00",label:"8:00 AM CET (Early morning commute)"},
