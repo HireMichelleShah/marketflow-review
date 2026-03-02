@@ -101,6 +101,30 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);
 .canva-edit{display:block;text-align:center;padding:7px;background:rgba(14,44,81,0.95);color:var(--teal);font-size:11px;text-decoration:none;font-weight:600;transition:background 0.2s}
 .canva-edit:hover{background:var(--navy)}
 
+/* ===== PER-IMAGE FEEDBACK ===== */
+.img-fb-toggle{display:block;width:100%;padding:8px;background:rgba(14,44,81,0.85);color:var(--teal);font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;border:none;cursor:pointer;transition:background 0.2s;letter-spacing:0.5px}
+.img-fb-toggle:hover{background:var(--navy)}
+.img-fb-panel{display:none;background:rgba(14,44,81,0.92);padding:12px}
+.img-fb-panel.open{display:block}
+.img-fb-card{background:rgba(255,255,255,0.08);border-radius:8px;padding:10px;margin-bottom:8px}
+.img-fb-card:last-child{margin-bottom:0}
+.img-fb-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.img-fb-thumb{width:48px;height:48px;border-radius:6px;object-fit:cover;cursor:zoom-in;border:2px solid rgba(255,255,255,0.15)}
+.img-fb-title{color:var(--teal);font-size:11px;font-weight:700;letter-spacing:0.5px}
+.img-fb-rating{display:flex;gap:4px;margin:6px 0}
+.img-fb-rating button{padding:4px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.7);font-family:'Montserrat',sans-serif;font-size:10px;font-weight:600;cursor:pointer;transition:all 0.2s}
+.img-fb-rating button:hover{background:rgba(255,255,255,0.15)}
+.img-fb-rating button.r-love{border-color:var(--green);background:rgba(72,187,120,0.2);color:var(--green)}
+.img-fb-rating button.r-ok{border-color:var(--yellow);background:rgba(236,201,75,0.2);color:var(--yellow)}
+.img-fb-rating button.r-change{border-color:var(--red);background:rgba(245,101,101,0.2);color:var(--red)}
+.img-fb-notes{width:100%;padding:6px 8px;border:1px solid rgba(255,255,255,0.15);border-radius:5px;background:rgba(255,255,255,0.06);color:white;font-family:'Montserrat',sans-serif;font-size:11px;resize:none;min-height:32px}
+.img-fb-notes::placeholder{color:rgba(255,255,255,0.3)}
+.img-fb-notes:focus{outline:none;border-color:var(--teal)}
+.img-fb-save{margin-top:8px;padding:6px 14px;background:var(--teal);color:var(--navy);border:none;border-radius:5px;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.2s}
+.img-fb-save:hover{background:var(--teal-dark);color:white}
+.img-fb-saved{display:inline-block;margin-left:8px;color:var(--green);font-size:10px;font-weight:600;opacity:0;transition:opacity 0.3s}
+.img-fb-saved.show{opacity:1}
+
 /* Content section */
 .card-content{flex:1;padding:24px;display:flex;flex-direction:column}
 .post-meta{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
@@ -390,7 +414,7 @@ let reviewer='';
 let state;
 let syncInProgress=false;
 
-function loadState(){try{state=JSON.parse(localStorage.getItem(SK))||{}}catch{state={}} if(!state.feedback)state.feedback={};if(!state.imageSelections)state.imageSelections={};if(!state.schedules)state.schedules={};return state}
+function loadState(){try{state=JSON.parse(localStorage.getItem(SK))||{}}catch{state={}} if(!state.feedback)state.feedback={};if(!state.imageSelections)state.imageSelections={};if(!state.schedules)state.schedules={};if(!state.imageFeedback)state.imageFeedback={};return state}
 function saveState(){localStorage.setItem(SK,JSON.stringify(state))}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 
@@ -405,6 +429,52 @@ function switchTab(tab){document.querySelectorAll('.tab-btn').forEach(b=>b.class
 // ===== IMAGE SELECTION =====
 function getSelectedImage(postId){return(state.imageSelections[postId]&&state.imageSelections[postId][reviewer])??0}
 function selectImage(postId,idx){if(!state.imageSelections[postId])state.imageSelections[postId]={};state.imageSelections[postId][reviewer]=idx;saveState();renderReview()}
+
+// ===== PER-IMAGE FEEDBACK =====
+function toggleImgFb(postId){
+  const panel=document.getElementById('img-fb-panel-'+postId);
+  if(panel)panel.classList.toggle('open');
+}
+function getImgFbKey(postId,imgIdx){return postId+'_'+imgIdx}
+function rateImage(postId,imgIdx,rating){
+  const key=getImgFbKey(postId,imgIdx);
+  if(!state.imageFeedback[key])state.imageFeedback[key]={};
+  state.imageFeedback[key].rating=rating;
+  state.imageFeedback[key].reviewer=reviewer;
+  saveState();
+  // Update button states visually
+  document.querySelectorAll(`#img-fb-r-${postId}-${imgIdx} button`).forEach(b=>{
+    b.className=b.dataset.rating===rating?'r-'+rating:'';
+  });
+}
+function saveImgFb(postId){
+  const post=posts.find(p=>p.id===postId);
+  if(!post)return;
+  let saved=0;
+  post.thumbnails.forEach((t,i)=>{
+    const key=getImgFbKey(postId,i);
+    const notesEl=document.getElementById('img-fb-notes-'+postId+'-'+i);
+    const notes=notesEl?notesEl.value.trim():'';
+    if(!state.imageFeedback[key])state.imageFeedback[key]={};
+    state.imageFeedback[key].notes=notes;
+    state.imageFeedback[key].reviewer=reviewer;
+    state.imageFeedback[key].timestamp=new Date().toISOString();
+    // Push to Sheets
+    if(state.imageFeedback[key].rating||notes){
+      pushImgFbToSheets({postId,imageIndex:i,reviewer,rating:state.imageFeedback[key].rating||'',notes,timestamp:state.imageFeedback[key].timestamp});
+      saved++;
+    }
+  });
+  saveState();
+  const badge=document.getElementById('img-fb-saved-'+postId);
+  if(badge){badge.classList.add('show');badge.textContent='Saved '+saved+' image notes ✓';setTimeout(()=>badge.classList.remove('show'),2500)}
+  toast('Image feedback saved for Post '+postId);
+}
+async function pushImgFbToSheets(data){
+  try{
+    await fetch(SHEETS_API,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'imageFeedback',...data})}).catch(()=>{});
+  }catch(e){console.log('Image feedback sync error:',e)}
+}
 
 // ===== VOTING (auto-saves immediately to Google Sheets) =====
 function vote(pid,v){
@@ -459,6 +529,32 @@ function renderReview(){
         </div>
         <div class="img-label">Choose your preferred image above</div>
         <a class="canva-edit" href="${p.canvaLinks[si]}" target="_blank">Edit in Canva</a>
+        <button class="img-fb-toggle" onclick="toggleImgFb(${p.id})">&#9997; Image Feedback (rate each option)</button>
+        <div class="img-fb-panel" id="img-fb-panel-${p.id}">
+          ${p.thumbnails.map((thumb,i)=>{
+            const key=getImgFbKey(p.id,i);
+            const fb=state.imageFeedback[key]||{};
+            return `<div class="img-fb-card">
+              <div class="img-fb-header">
+                <img class="img-fb-thumb" src="${thumb}" alt="Option ${i+1}" onclick="openLightbox(this.src)" onerror="this.style.display='none'" />
+                <div>
+                  <div class="img-fb-title">OPTION ${i+1}</div>
+                  <a href="${p.canvaLinks[i]}" target="_blank" style="color:rgba(255,255,255,0.4);font-size:9px;text-decoration:none">Edit in Canva</a>
+                </div>
+              </div>
+              <div class="img-fb-rating" id="img-fb-r-${p.id}-${i}">
+                <button class="${fb.rating==='love'?'r-love':''}" data-rating="love" onclick="rateImage(${p.id},${i},'love')">&#x2764; Love</button>
+                <button class="${fb.rating==='ok'?'r-ok':''}" data-rating="ok" onclick="rateImage(${p.id},${i},'ok')">&#x1F44C; OK</button>
+                <button class="${fb.rating==='change'?'r-change':''}" data-rating="change" onclick="rateImage(${p.id},${i},'change')">&#x270F; Needs Change</button>
+              </div>
+              <textarea class="img-fb-notes" id="img-fb-notes-${p.id}-${i}" placeholder="Notes on this image (colors, layout, text, etc.)...">${fb.notes||''}</textarea>
+            </div>`;
+          }).join('')}
+          <div style="display:flex;align-items:center;margin-top:4px">
+            <button class="img-fb-save" onclick="saveImgFb(${p.id})">Save Image Feedback</button>
+            <span class="img-fb-saved" id="img-fb-saved-${p.id}">Saved ✓</span>
+          </div>
+        </div>
       </div>
       <div class="card-content">
         <div class="post-meta">
@@ -657,7 +753,16 @@ async function pullFromSheets(){
             }
           });
         });
-        saveState();renderReview();updateCounts();
+                // Merge image feedback from cloud
+        if(data.imageFeedback){
+          Object.keys(data.imageFeedback).forEach(key=>{
+            const cf=data.imageFeedback[key];
+            if(!state.imageFeedback[key]||!state.imageFeedback[key].timestamp||cf.timestamp>state.imageFeedback[key].timestamp){
+              state.imageFeedback[key]={reviewer:cf.reviewer,rating:cf.rating||'',notes:cf.notes||'',timestamp:cf.timestamp};
+            }
+          });
+        }
+saveState();renderReview();updateCounts();
         document.getElementById('sync-status').textContent='Synced ✓';
         document.getElementById('sync-status').style.color='var(--green)';
       }
