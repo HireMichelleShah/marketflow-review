@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MarketFlow - LinkedIn Content Review | March 2026</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--navy:#0E2C51;--teal:#6BB7B3;--teal-light:#e8f5f4;--teal-dark:#4a9e9a;--bg:#f7f9fc;--card-bg:#fff;--text:#333;--text-light:#777;--border:#e2e8f0;--green:#48bb78;--red:#f56565;--yellow:#ecc94b;--shadow:0 2px 12px rgba(14,44,81,0.08)}
+body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+
+/* ===== WELCOME OVERLAY ===== */
+.welcome-overlay{position:fixed;inset:0;background:rgba(14,44,81,0.92);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.welcome-overlay.hidden{display:none}
+.welcome-box{background:white;border-radius:16px;padding:48px 40px;max-width:440px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+.welcome-box h1{font-size:28px;color:var(--navy);font-weight:700;letter-spacing:1px;margin-bottom:4px}
+.welcome-box h1 span{color:var(--teal)}
+.welcome-box p{color:var(--text-light);font-size:14px;margin:12px 0 28px}
+.welcome-box label{display:block;text-align:left;font-size:13px;font-weight:600;color:var(--navy);margin-bottom:8px}
+.welcome-box select{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:10px;font-family:'Montserrat',sans-serif;font-size:15px;color:var(--navy);background:white;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%230E2C51' stroke-width='2' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;transition:border-color 0.2s}
+.welcome-box select:focus{outline:none;border-color:var(--teal)}
+.welcome-btn{margin-top:24px;width:100%;padding:14px;background:var(--navy);color:white;border:none;border-radius:10px;font-family:'Montserrat',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all 0.2s;letter-spacing:0.5px}
+.welcome-btn:hover{background:#163a6b}
+.welcome-btn:disabled{opacity:0.4;cursor:not-allowed}
+
+/* ===== HEADER ===== */
+.site-header{background:var(--navy);padding:18px 0;position:sticky;top:0;z-index:100;box-shadow:0 4px 20px rgba(14,44,81,0.3)}
+.header-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center}
+.logo-area h1{color:white;font-size:20px;font-weight:700;letter-spacing:1px}
+.logo-area h1 span{color:var(--teal)}
+.header-right{display:flex;align-items:center;gap:16px}
+.reviewer-badge{background:var(--teal);color:var(--navy);padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700}
+.switch-reviewer{background:none;border:1px solid rgba(255,255,255,0.3);color:rgba(255,255,255,0.7);padding:6px 12px;border-radius:6px;font-family:'Montserrat',sans-serif;font-size:11px;cursor:pointer;transition:all 0.2s}
+.switch-reviewer:hover{border-color:var(--teal);color:var(--teal)}
+
+/* ===== TABS ===== */
+.tab-bar{background:white;border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:90}
+.tab-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;gap:0}
+.tab-btn{padding:14px 24px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:var(--text-light);background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;transition:all 0.2s}
+.tab-btn:hover{color:var(--navy)}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--teal)}
+.tab-count{display:inline-block;background:var(--border);color:var(--text-light);font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px}
+.tab-btn.active .tab-count{background:var(--teal-light);color:var(--teal-dark)}
+
+/* ===== STATS BAR ===== */
+.stats-bar{background:#fafbfc;border-bottom:1px solid var(--border);padding:12px 0}
+.stats-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;gap:28px;align-items:center;flex-wrap:wrap}
+.stat{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-light)}
+.stat-num{font-size:18px;font-weight:700;color:var(--navy)}
+.stat-num.s-approved{color:var(--green)}.stat-num.s-rejected{color:var(--red)}.stat-num.s-pending{color:var(--yellow)}
+.export-btn{margin-left:auto;background:var(--teal);color:white;border:none;border-radius:6px;padding:8px 16px;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s}
+.export-btn:hover{background:var(--teal-dark)}
+
+/* ===== TAB PANELS ===== */
+.tab-panel{display:none}.tab-panel.active{display:block}
+
+/* ===== WEEK HEADERS ===== */
+.week-header{max-width:1200px;margin:32px auto 16px;padding:0 24px}
+.week-header h2{font-size:14px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:2px;padding-bottom:8px;border-bottom:3px solid var(--teal);display:inline-block}
+.week-header p{color:var(--text-light);font-size:12px;margin-top:4px}
+
+/* ===== POST CARDS ===== */
+.post-card{max-width:1200px;margin:16px auto;padding:0 24px}
+.card-inner{background:var(--card-bg);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;border:2px solid transparent;transition:border-color 0.3s}
+.card-inner.status-approved{border-color:var(--green)}.card-inner.status-rejected{border-color:var(--red)}
+.card-top{display:flex}
+
+/* Image section */
+.card-image{width:360px;min-width:360px;background:var(--navy);display:flex;flex-direction:column}
+.card-image .main-img{width:100%;height:360px;object-fit:cover;display:block}
+.image-select-strip{padding:4px;background:rgba(0,0,0,0.3);display:flex;gap:3px}
+.img-choice{flex:1;cursor:pointer;opacity:0.5;border:2px solid transparent;border-radius:4px;overflow:hidden;transition:all 0.2s}
+.img-choice:hover{opacity:0.8}.img-choice.selected{opacity:1;border-color:var(--teal)}
+.img-choice img{width:100%;height:55px;object-fit:cover;display:block}
+.img-label{text-align:center;padding:6px;font-size:10px;color:var(--teal);font-weight:600;background:rgba(14,44,81,0.9);letter-spacing:0.5px}
+.canva-edit{display:block;text-align:center;padding:7px;background:rgba(14,44,81,0.95);color:var(--teal);font-size:11px;text-decoration:none;font-weight:600;transition:background 0.2s}
+.canva-edit:hover{background:var(--navy)}
+
+/* Content section */
+.card-content{flex:1;padding:24px;display:flex;flex-direction:column}
+.post-meta{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.meta-badge{font-size:10px;font-weight:600;padding:4px 10px;border-radius:4px;text-transform:uppercase;letter-spacing:0.5px}
+.badge-num{background:var(--navy);color:white}.badge-type{background:var(--teal-light);color:var(--teal-dark)}.badge-speaker{background:#f0f0f0;color:var(--text-light)}
+.post-hook{font-size:17px;font-weight:700;color:var(--navy);line-height:1.35;margin-bottom:14px}
+.post-body{font-size:13px;color:var(--text);line-height:1.7;white-space:pre-line;flex:1;max-height:280px;overflow-y:auto;padding-right:6px}
+.post-body::-webkit-scrollbar{width:3px}.post-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.post-hashtags{margin-top:14px;font-size:12px;color:var(--teal-dark);font-weight:500}
+.post-cta{margin-top:6px;font-size:11px;color:var(--text-light);font-style:italic}
+
+/* Feedback bar */
+.card-feedback{border-top:1px solid var(--border);padding:16px 24px;display:flex;align-items:flex-start;gap:14px}
+.vote-buttons{display:flex;gap:8px;min-width:96px}
+.vote-btn{width:42px;height:42px;border-radius:10px;border:2px solid var(--border);background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all 0.2s}
+.vote-btn:hover{transform:scale(1.08)}
+.vote-btn.approve:hover,.vote-btn.approve.active{border-color:var(--green);background:#f0fff4}
+.vote-btn.reject:hover,.vote-btn.reject.active{border-color:var(--red);background:#fff5f5}
+.fb-input{flex:1;display:flex;gap:8px;align-items:flex-start}
+.fb-input textarea{flex:1;min-height:42px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:'Montserrat',sans-serif;font-size:12px;resize:none;transition:border-color 0.2s}
+.fb-input textarea:focus{outline:none;border-color:var(--teal)}
+.save-fb{background:var(--navy);color:white;border:none;border-radius:8px;padding:10px 18px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all 0.2s}
+.save-fb:hover{background:#163a6b}
+
+/* Previous feedback */
+.prev-feedback{border-top:1px solid var(--border);padding:12px 24px;background:#fafbfc}
+.prev-feedback h4{font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.fb-entry{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.fb-entry:last-child{border-bottom:none}
+.fb-name{font-weight:700;color:var(--navy);min-width:70px}
+.fb-vote{font-size:14px;min-width:20px}
+.fb-note{color:var(--text);flex:1}
+.fb-time{color:#bbb;font-size:10px;min-width:80px;text-align:right}
+
+/* ===== SCHEDULE SECTION (on approved cards) ===== */
+.schedule-bar{border-top:1px solid var(--border);padding:14px 24px;background:var(--teal-light);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.schedule-bar label{font-size:12px;font-weight:600;color:var(--navy)}
+.schedule-bar input[type="date"],.schedule-bar select{padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-family:'Montserrat',sans-serif;font-size:12px;background:white}
+.schedule-bar .sched-save{background:var(--green);color:white;border:none;border-radius:6px;padding:8px 16px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;cursor:pointer}
+.schedule-bar .sched-save:hover{background:#38a169}
+.scheduled-badge{background:var(--green);color:white;font-size:10px;font-weight:700;padding:3px 10px;border-radius:10px;margin-left:auto}
+
+/* ===== CALENDAR VIEW ===== */
+.calendar-wrap{max-width:1200px;margin:24px auto;padding:0 24px}
+.cal-month{font-size:20px;font-weight:700;color:var(--navy);margin-bottom:16px;text-align:center}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;background:var(--border);border-radius:12px;overflow:hidden}
+.cal-header{background:var(--navy);color:white;text-align:center;padding:10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.cal-day{background:white;min-height:110px;padding:8px;position:relative}
+.cal-day.other-month{background:#f9fafb}
+.cal-day .day-num{font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:4px}
+.cal-day.today .day-num{color:white;background:var(--teal);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.cal-post{background:var(--navy);color:white;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:600;margin-top:4px;cursor:pointer;transition:background 0.2s;line-height:1.3}
+.cal-post:hover{background:#163a6b}
+.cal-post .cal-time{color:var(--teal);font-size:9px;display:block;margin-top:2px}
+.cal-empty{text-align:center;padding:60px 24px;color:var(--text-light)}
+.cal-empty h3{font-size:18px;color:var(--navy);margin-bottom:8px}
+
+/* ===== LEGEND ===== */
+.cal-legend{display:flex;gap:20px;justify-content:center;margin:16px 0;font-size:12px;color:var(--text-light)}
+.cal-legend span{display:flex;align-items:center;gap:6px}
+.legend-dot{width:10px;height:10px;border-radius:3px}
+.legend-dot.scheduled{background:var(--navy)}.legend-dot.unscheduled{background:var(--yellow)}
+
+/* ===== TOAST ===== */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 8px 30px rgba(0,0,0,0.2);transform:translateY(100px);opacity:0;transition:all 0.3s;z-index:200}
+.toast.show{transform:translateY(0);opacity:1}
+
+/* ===== FOOTER ===== */
+.site-footer{text-align:center;padding:32px 24px;color:var(--text-light);font-size:11px}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:900px){
+  .card-top{flex-direction:column}.card-image{width:100%;min-width:unset}.card-image .main-img{height:280px}
+  .header-inner{flex-direction:column;gap:10px;text-align:center}.header-right{justify-content:center}
+  .tab-btn{padding:12px 14px;font-size:12px}.stats-inner{justify-content:center}.export-btn{margin-left:0}
+  .cal-grid{grid-template-columns:1fr}.cal-header{display:none}.cal-day{min-height:auto;padding:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== WELCOME OVERLAY ===== -->
+<div class="welcome-overlay" id="welcome">
+  <div class="welcome-box">
+    <h1>MARKET <span>FLOW</span></h1>
+    <p>LinkedIn Content Calendar Review<br>March 2026 &middot; 12 Posts</p>
+    <label for="reviewer-select">Who is reviewing?</label>
+    <select id="reviewer-select">
+      <option value="" disabled selected>Select your name...</option>
+      <option value="Anna Sarkowska">Anna Sarkowska</option>
+      <option value="Michelle Shah">Michelle Shah</option>
+    </select>
+    <button class="welcome-btn" id="start-btn" disabled onclick="startReview()">Start Reviewing</button>
+  </div>
+</div>
+
+<!-- ===== HEADER ===== -->
+<header class="site-header">
+  <div class="header-inner">
+    <div class="logo-area"><h1>MARKET <span>FLOW</span> &middot; Content Review</h1></div>
+    <div class="header-right">
+      <span class="reviewer-badge" id="header-reviewer"></span>
+      <button class="switch-reviewer" onclick="switchReviewer()">Switch</button>
+    </div>
+  </div>
+</header>
+
+<!-- ===== TABS ===== -->
+<div class="tab-bar">
+  <div class="tab-inner">
+    <button class="tab-btn active" data-tab="review" onclick="switchTab('review')">Review Posts <span class="tab-count" id="tc-review">12</span></button>
+    <button class="tab-btn" data-tab="approved" onclick="switchTab('approved')">Approved & Schedule <span class="tab-count" id="tc-approved">0</span></button>
+    <button class="tab-btn" data-tab="calendar" onclick="switchTab('calendar')">Calendar Planner <span class="tab-count" id="tc-calendar">0</span></button>
+  </div>
+</div>
+
+<!-- ===== STATS ===== -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat"><span class="stat-num" id="s-total">12</span> Posts</div>
+    <div class="stat"><span class="stat-num s-approved" id="s-approved">0</span> Approved</div>
+    <div class="stat"><span class="stat-num s-rejected" id="s-rejected">0</span> Needs Changes</div>
+    <div class="stat"><span class="stat-num s-pending" id="s-pending">12</span> Pending</div>
+    <button class="export-btn" onclick="exportFeedback()">Export Feedback JSON</button>
+    <button class="export-btn" onclick="autoSyncFeedback()" style="background:var(--teal);color:var(--navy)">Copy Summary to Clipboard</button>
+  </div>
+</div>
+
+<!-- ===== TAB PANELS ===== -->
+<div class="tab-panel active" id="panel-review"></div>
+<div class="tab-panel" id="panel-approved"></div>
+<div class="tab-panel" id="panel-calendar"></div>
+
+<div class="site-footer">
+  <p>MarketFlow Content Review Dashboard &middot; Feedback is stored in your browser and can be exported as JSON.</p>
+  <p style="margin-top:4px">Share this HTML file with your team. Each reviewer selects their name and reviews independently.</p>
+  <p style="margin-top:4px;color:var(--teal)"><strong>Sync:</strong> Export the JSON and save it to your MarketFlow folder, or use "Copy Summary" and paste it to Claude for real-time updates.</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== OPTIMAL POST TIMES FOR CEE (CET/CEST) =====
+const OPTIMAL_TIMES = [
+  {value:"08:00",label:"8:00 AM CET (Early morning commute)"},
+  {value:"09:30",label:"9:30 AM CET (Start of workday)"},
+  {value:"12:00",label:"12:00 PM CET (Lunch break - peak)"},
+  {value:"17:00",label:"5:00 PM CET (End of workday)"},
+  {value:"19:00",label:"7:00 PM CET (Evening browsing)"}
+];
+
+// ===== POST DATA =====
+const posts = [
+  {id:1,week:1,day:"Monday",date:"March 3, 2026",type:"Thought Leadership",speaker:"Samuel E. Lach, Executive Partner",
+   hook:"The most expensive line in your EU expansion budget isn\u2019t regulatory compliance.",
+   body:"It\u2019s the 12 to 18 months you spend learning, inside the market, what you could have known before you got there.\n\nI\u2019ve watched this play out more than 150 times. Strong product. Motivated team. A business case that looks great on paper.\n\nThen the distribution model doesn\u2019t fit. The price point collapses under local margin structures. The buyer in Warsaw needs something your pitch deck never accounted for.\n\nNone of this is unknowable. It\u2019s just untested.\n\nThe companies that get traction in Europe aren\u2019t the ones with the biggest budgets. They\u2019re the ones who tested their assumptions before they committed capital.\n\nWhat\u2019s the one assumption you\u2019d want tested before entering a new market?",
+   hashtags:"#EuropeanExpansion #MarketEntry #B2B #InternationalBusiness #MarketValidation #Poland",cta:"Open question to drive comments",
+   thumbnails:["https://design.canva.ai/1YW8YlAtf8MJlcG","https://design.canva.ai/NYlMJdTuAC-tsjj","https://design.canva.ai/k1ybeASWo7Z53MO","https://design.canva.ai/pxsVWmGSohXgBAA"],
+   canvaLinks:["https://www.canva.com/d/yyjj8mrfA2T7ywW","https://www.canva.com/d/yzcrltTp9MQbpqN","https://www.canva.com/d/mwMpiTHKxEvcSVO","https://www.canva.com/d/hdch3NR2C-iTv-K"]},
+  {id:2,week:1,day:"Wednesday",date:"March 5, 2026",type:"Data Insight",speaker:"Anna Sarkowska, CEO & Co-Founder",
+   hook:"Poland\u2019s GDP has grown every single year since 1992.",
+   body:"34 consecutive years. No other EU economy comes close.\n\nWhat does that mean for companies looking at European entry?\n\n38 million consumers. $25,100 GDP per capita, up from $1,600 in 1990. The top FDI destination in Central and Eastern Europe, with $27 billion in inflows last year. Unemployment at 2.8%, among the lowest in the EU.\n\nBut the number that matters most isn\u2019t GDP growth. It\u2019s this: Polish B2B buyers have changed. They\u2019re no longer buying on price alone. Quality, reliability, and after-sales support now carry more weight than cost in most B2B segments.\n\nIf your product competes on value rather than just price, Poland is paying attention.\n\nThe question is whether your entry strategy reflects how this market works today, not how it worked ten years ago.",
+   hashtags:"#Poland #CEE #MarketEntry #FDI #EuropeanMarket #B2BGrowth",cta:"Let the data speak. Invites resharing.",
+   thumbnails:["https://design.canva.ai/cm4JsMCg_9LU6I4","https://design.canva.ai/Ue0tNVR9nBezFEi","https://design.canva.ai/AAn-CVeJUM655On","https://design.canva.ai/KCU6me4SRbmYQkI"],
+   canvaLinks:["https://www.canva.com/d/oe0bXAtepp-P75H","https://www.canva.com/d/paWWAM2U83ORVDs","https://www.canva.com/d/1dPKL8o2iCF6D_P","https://www.canva.com/d/F5nSh94p7K349BJ"]},
+  {id:3,week:1,day:"Friday",date:"March 7, 2026",type:"Framework",speaker:"Michelle Shah, COO & Co-Founder",
+   hook:"Three mistakes that stall 80% of European market entries.",
+   body:"After two decades helping companies from the Americas set up in the EU, I keep seeing the same patterns:\n\n1. Launching before demand is confirmed. Success at home doesn\u2019t automatically transfer. Pricing, buyer behaviour, and channel structures in Central Europe are often different enough that assumptions built elsewhere just don\u2019t hold.\n\n2. Hiring before planning. Bringing on a local team before the commercial model is defined means those hires work without a clear brief, target customer, or defined channels.\n\n3. Treating Europe as one market. Germany, Poland, and France have different buyer expectations, different distribution structures, different compliance rules, and different sales cycles.\n\nThe common thread: all three are avoidable. Every one of them can be caught and fixed before capital is committed.\n\nThat\u2019s not hindsight. That\u2019s validation.",
+   hashtags:"#MarketEntry #EuropeanExpansion #B2B #GoToMarket #InternationalGrowth",cta:"Repost if this matches your expansion experience.",
+   thumbnails:["https://design.canva.ai/_xg84xarWFNBOGn","https://design.canva.ai/XqBu_JOefC-plMt","https://design.canva.ai/X6Y0Sg0-cM59CAS","https://design.canva.ai/QU8_mS9y8BBisJY"],
+   canvaLinks:["https://www.canva.com/d/kx1EOth3WiNErUP","https://www.canva.com/d/B8UFhzafPHyyX1x","https://www.canva.com/d/2digob7BCnQjWs-","https://www.canva.com/d/_7jMWQm3lQlV8YE"]},
+  {id:4,week:2,day:"Monday",date:"March 10, 2026",type:"Process Reveal",speaker:"Samuel E. Lach, Executive Partner",
+   hook:"We told a $40M company not to enter Europe. They thanked us for it.",
+   body:"Our validation process produces one of two outcomes: a substantiated go-decision, or a structured no-go.\n\nBoth protect capital.\n\nMost advisory firms are set up to say yes. More work follows a yes. A no-go recommendation means the engagement ends.\n\nWe see it differently. A clear no-go, with the specific conditions that would need to change, is one of the most valuable things we deliver. It stops a company from spending 12 to 18 months and serious money discovering what 8 weeks of structured validation would have shown them.\n\nThat company I mentioned? They came back 14 months later when conditions had shifted. They entered with a tested thesis, realistic pricing, and a distribution partner we\u2019d already identified.\n\nThey launched in half the time of their original plan. Profitable in the target market within 9 months.\n\nSometimes the most valuable advice is: not yet.",
+   hashtags:"#MarketValidation #EuropeanExpansion #B2B #StrategicPlanning #MarketEntry",cta:"Challenges the conventional advisory model",
+   thumbnails:["https://design.canva.ai/HpC3jYWcdF6q-f5","https://design.canva.ai/L0QYy1lSvjGGcjZ","https://design.canva.ai/v7HFXnID3jWkvQy","https://design.canva.ai/gYlp-Tw7-gPLzFR"],
+   canvaLinks:["https://www.canva.com/d/N8TQoQUsYMaTee7","https://www.canva.com/d/oOfN0ZxawtXJ3jp","https://www.canva.com/d/yvIL72tjgSJkksA","https://www.canva.com/d/7inbMG2Ii8t8QuL"]},
+  {id:5,week:2,day:"Wednesday",date:"March 12, 2026",type:"Buyer Psychology",speaker:"Anna Sarkowska, CEO & Co-Founder",
+   hook:"Polish buyers won\u2019t buy from your catalogue. Here\u2019s what they need instead.",
+   body:"After 20 years working with companies entering Poland, the single biggest gap between expectation and reality comes down to this:\n\nForeign companies expect to send a price list and get orders. Polish B2B buyers expect to build a relationship first.\n\nIn practice, that means they research you thoroughly before making contact. They want product demos, not spec sheets. They want to know you have people on the ground. And they involve more decision-makers than you\u2019re used to.\n\nFor capital equipment or long-term supply deals, plan for 6 to 12 months. That\u2019s not slow. That\u2019s how trust works here.\n\nCompanies that win in Poland don\u2019t try to skip this process. They prepare for it. They put their materials in Polish. They invest in after-sales support. They show up.\n\nLocalization isn\u2019t translation. It\u2019s understanding how buyers here actually make decisions, and building your whole approach around that.",
+   hashtags:"#Poland #BuyerBehaviour #B2B #Localization #SalesStrategy #CentralEurope",cta:"Save this for your next expansion planning session.",
+   thumbnails:["https://design.canva.ai/FWi7UeUjkv7jUcp","https://design.canva.ai/tHOAQlhBIdNlnt5","https://design.canva.ai/4IyPyxbDtaCYn9o","https://design.canva.ai/bMJGnoqX4Y9hqOk"],
+   canvaLinks:["https://www.canva.com/d/owdHFjDlACHcFJg","https://www.canva.com/d/GUVAt99hp6gfPcB","https://www.canva.com/d/QtRZFjC5sbTWdxe","https://www.canva.com/d/NtTzXi0A5v0IOCi"]},
+  {id:6,week:2,day:"Friday",date:"March 14, 2026",type:"Contrarian Take",speaker:"Michelle Shah, COO & Co-Founder",
+   hook:"Market presence is not a commercial outcome. Revenue is.",
+   body:"I\u2019ve seen companies celebrate having a local entity, a local website, and a local team while generating zero revenue in the market.\n\nPresence without performance is just overhead.\n\nThis distinction matters because it changes what you measure, what you prioritize, and when you call something a success.\n\nA local entity is an administrative step, not a milestone. A translated website is a minimum requirement, not an achievement. A local hire without a defined commercial model is a cost, not an investment.\n\nWe measure success by whether a client is generating measurable, growing revenue in the target market. Not by whether they\u2019ve set up infrastructure.\n\nStructure before you scale. Revenue before presence.\n\nIf your European expansion plan measures success by anything other than commercial traction, it\u2019s time to rethink the plan.",
+   hashtags:"#RevenueFirst #EuropeanExpansion #B2B #MarketEntry #CommercialStrategy",cta:"Agree or disagree? Drop your take below.",
+   thumbnails:["https://design.canva.ai/mQw-OXCtQ49l1AG","https://design.canva.ai/NvuZr0kpqEaKgKh","https://design.canva.ai/FshurdCjMY2oR4s","https://design.canva.ai/rFmUr5TzOaLUb6P"],
+   canvaLinks:["https://www.canva.com/d/36t3md6-6hFZtMG","https://www.canva.com/d/D7FFbBLhfpYMIyO","https://www.canva.com/d/_Kk4h7wV1CnYd_V","https://www.canva.com/d/z7glnE7D3hOXOoJ"]},
+  {id:7,week:3,day:"Monday",date:"March 17, 2026",type:"Sector Spotlight",speaker:"Michelle Shah, COO & Co-Founder",
+   hook:"If you manufacture outside the EU, here\u2019s what stands between you and European revenue.",
+   body:"CE marking. Distributor requirements. Margin structures that don\u2019t match your home market.\n\nFor manufacturers expanding into Europe from Asia or the Americas, the gap between having a good product and actually selling it is wider than most expect.\n\nHere\u2019s what we see over and over:\n\nThe product meets quality standards, but CE conformity assessment takes 3 to 9 months depending on the directive. Budget for it.\n\nThe pricing works at home, but European distributors need margins your current structure can\u2019t support. Rebuild it before you pitch.\n\nYou find a distributor, but they only cover Warsaw and one other city. Poland\u2019s economy is spread across the country. Krakow, Wroclaw, Poznan, Gdansk, and the Silesian belt are all real markets.\n\nNone of these are dealbreakers. All of them are solvable. But only if you know about them before committing capital, not after.",
+   hashtags:"#Manufacturing #CEMarking #EUCompliance #MarketEntry #SupplyChain #Poland",cta:"Tag a manufacturing leader looking at EU expansion.",
+   thumbnails:["https://design.canva.ai/sQwILQvXYGnJwEP","https://design.canva.ai/FO7OiS9DnTDkyK6","https://design.canva.ai/sRPBznNsYLv6H9E","https://design.canva.ai/YlHxVH8_2-b3k6S"],
+   canvaLinks:["https://www.canva.com/d/mL2gkI7XSXoCvK4","https://www.canva.com/d/SwZCG46ekFFdycJ","https://www.canva.com/d/si5qYBZFWdTtapa","https://www.canva.com/d/dh-OsuDWhw2Z-47"]},
+  {id:8,week:3,day:"Wednesday",date:"March 19, 2026",type:"Case Pattern",speaker:"Samuel E. Lach, Executive Partner",
+   hook:"The difference between a 24-month stall and a 9-month launch? Eight weeks of validation.",
+   body:"I won\u2019t name the company. But the pattern is worth sharing because we\u2019ve seen it repeat.\n\nCompany A entered Europe without validation. Good product. Enthusiastic team. They hired locally, set up an entity, started approaching distributors.\n\n18 months later: two distribution relationships that weren\u2019t performing. A price point that didn\u2019t survive local margin structures. Revenue well below forecast.\n\nCompany B, same sector, similar product, ran structured validation first. Eight weeks. Real buyer interviews. Competitive mapping. Pricing tests.\n\nThe validation showed their original channel assumption wouldn\u2019t work, but it identified an alternative that would. It revealed their price point needed adjustment for one segment but was strong in another.\n\nThey entered with evidence. Launched in 5 months. Hit revenue targets in 9.\n\nSame market. Same sector. Different sequence.\n\nValidate before you invest. It\u2019s the fastest path to revenue, not the slowest.",
+   hashtags:"#CaseStudy #MarketValidation #B2B #EuropeanExpansion #MarketEntry",cta:"Which approach sounds more like your current plan?",
+   thumbnails:["https://design.canva.ai/BTxAk2y6wn0MtEH","https://design.canva.ai/SMeUGFt7VxCqvPN","https://design.canva.ai/QMf3kk7f-gwy-g4","https://design.canva.ai/oXUzuRIdT6eEeXc"],
+   canvaLinks:["https://www.canva.com/d/dDAiMfPYnwc8gnG","https://www.canva.com/d/mWq0MED960sZVVo","https://www.canva.com/d/G0Lq3NwU-GPPcNy","https://www.canva.com/d/8XhYbehDIDJ2Gy8"]},
+  {id:9,week:3,day:"Friday",date:"March 21, 2026",type:"Regulatory Insight",speaker:"Anna Sarkowska, CEO & Co-Founder",
+   hook:"Poland\u2019s mandatory e-invoicing system launches in 2026.",
+   body:"The KSeF (Krajowy System e-Faktur) is Poland\u2019s new mandatory electronic invoicing platform. It will affect every company doing business in Poland, including foreign entities selling through local structures.\n\nWhat this means in practice:\n\nAll invoices issued in Poland will go through the centralized government platform. This applies whether you operate through a local sp. z o.o., a branch office, or a VAT-registered foreign entity.\n\nYour ERP and invoicing systems will need to connect with KSeF. If you\u2019re entering Poland now, build this into your technology planning from the start.\n\nFor companies already here, the transition timeline is set but implementation details are still being clarified. Don\u2019t wait until Q4 to start preparing.\n\nThis is the kind of regulatory detail that standard market reports miss but that directly affects your cost structure and operations.\n\nWe assess requirements like KSeF as part of our validation process, before you commit to a market entry structure.",
+   hashtags:"#KSeF #Poland #EInvoicing #Compliance #EURegulation #MarketEntry",cta:"Follow Market Flow for regulatory updates.",
+   thumbnails:["https://design.canva.ai/kyqY-KP2EOsGyuE","https://design.canva.ai/kwcu4VTRotkwCyu","https://design.canva.ai/AVsmJBh-jxYhMxR","https://design.canva.ai/xPEaYldcT83OkJ5"],
+   canvaLinks:["https://www.canva.com/d/7D7k_BSxi8SXM-q","https://www.canva.com/d/yIWk-rSyTqBiN73","https://www.canva.com/d/UpOIJ9HpquhQ2kB","https://www.canva.com/d/YEHU6jzgLATzYjM"]},
+  {id:10,week:4,day:"Monday",date:"March 24, 2026",type:"Team Spotlight",speaker:"Market Flow (company post)",
+   hook:"You won\u2019t be handed off to a junior team. Here\u2019s why that matters.",
+   body:"At Market Flow, the people who design your strategy are the people who execute it.\n\nNo account management layer. No handoff after the kickoff call. No junior analyst writing the report while the partner moves on to the next client.\n\nOur leadership team works directly with every engagement, from first conversation through commercial execution:\n\nAnna Sarkowska brings 20+ years of European market entry experience, with Poland as her core domain.\n\nMichelle Shah leads commercial structuring and operational execution, turning validated strategies into distribution and pricing infrastructure that produces revenue.\n\nSamuel E. Lach leads commercial validation and engagement design, making sure every recommendation is backed by evidence, not optimism.\n\nThis structure exists for a reason: expansion decisions carry too much weight to delegate.\n\nThat\u2019s how we\u2019ve delivered 150+ projects across 8+ markets.",
+   hashtags:"#TeamSpotlight #Leadership #MarketEntry #EuropeanExpansion #B2B",cta:"Meet the team: market-flow.pl/about",
+   thumbnails:["https://design.canva.ai/9-rEJCCtVAJBsIX","https://design.canva.ai/qDbyy8M8GpOhwC0","https://design.canva.ai/svtTLwR8fzgQM43","https://design.canva.ai/cMaCiv-E1_6DGTU"],
+   canvaLinks:["https://www.canva.com/d/iXn_cWlnm7qQ4Zp","https://www.canva.com/d/sGUmiAA4kKE6SRH","https://www.canva.com/d/NOmsrCspmGw-XyA","https://www.canva.com/d/Lpm2RXspgdJZTb5"]},
+  {id:11,week:4,day:"Wednesday",date:"March 26, 2026",type:"Location Advantage",speaker:"Anna Sarkowska, CEO & Co-Founder",
+   hook:"Why we\u2019re based in Wroclaw, and why it matters for your expansion.",
+   body:"Wroclaw was just ranked #1 among mid-sized European cities for investment potential by fDi Intelligence (Financial Times group, 2025).\n\nWe didn\u2019t end up here by accident.\n\nOver $10 billion in FDI in the past five years. A location near the German border that makes it efficient for companies managing supply chains across Central and Eastern Europe. A deep talent pool in engineering, IT, and business services.\n\nBut the rankings don\u2019t capture everything.\n\nWroclaw is a city where you can still build real commercial relationships. It\u2019s large enough to be a serious business hub, but connected enough that the right introductions still matter.\n\nFor companies entering from outside Europe, that combination of infrastructure, cost advantage, and relationship access is hard to find elsewhere.\n\nWarsaw is where most foreign companies land first. Wroclaw is where many of the smartest ones are building.",
+   hashtags:"#Wroclaw #Poland #FDI #CentralEurope #BusinessExpansion #InvestInPoland",cta:"Have you considered Wroclaw? Let's talk.",
+   thumbnails:["https://design.canva.ai/V20HoYXQrE_slqW","https://design.canva.ai/4Pwdff0_u_rJ09b","https://design.canva.ai/HsToejCImEM8Uex","https://design.canva.ai/egoqgcSXhWNvwpl"],
+   canvaLinks:["https://www.canva.com/d/jcnfj-eKPdOSrX0","https://www.canva.com/d/OxPKiIXz7_Jb5hE","https://www.canva.com/d/TVECk49f3dD6yIz","https://www.canva.com/d/XKLEneyIInMuOGS"]},
+  {id:12,week:4,day:"Friday",date:"March 28, 2026",type:"Direct CTA",speaker:"Samuel E. Lach, Executive Partner",
+   hook:"If you\u2019re looking at European expansion in 2026, here\u2019s where to start.",
+   body:"Not with a consultant. Not with a market report. Not with a local hire.\n\nStart with the questions you haven\u2019t answered yet.\n\nDoes demand exist at your price point, through channels you can actually reach? Does your regulatory position hold? Does your value proposition make sense for how European buyers actually make decisions?\n\nIf you can answer all three with evidence, you\u2019re ready to move.\n\nIf you can\u2019t, that\u2019s not a problem. That\u2019s a starting point.\n\nAt Market Flow, we give international companies a structured, evidence-based path into Poland and the EU. We test assumptions before you invest. We localize before you launch. And we stay involved until the market is working, not until the report is delivered.\n\nThe first conversation is 30 minutes. No pitch. No obligation.\n\nIf European expansion is on your 2026 roadmap, have this conversation now, not in Q3.\n\ncontact@market-flow.pl",
+   hashtags:"#EuropeanExpansion #MarketEntry #B2B #Poland #EU #InternationalBusiness",cta:"Direct CTA to email. Pin this post.",
+   thumbnails:["https://design.canva.ai/wLYz0Lk3iLrmfPy","https://design.canva.ai/r2dvhonWP4OC813","https://design.canva.ai/oD1F0hB1uxkkDAU","https://design.canva.ai/0uHsfBFn2U6d3zv"],
+   canvaLinks:["https://www.canva.com/d/QvbvPT6-v8Hut1A","https://www.canva.com/d/vG_DISgUjEpbhXA","https://www.canva.com/d/96N98CTqTgED3Tb","https://www.canva.com/d/wNISwFbDxZdLCaW"]}
+];
+
+const weekThemes={1:{t:"Week 1: Credibility & Problem Awareness",d:"Establish expertise and surface the real challenges of EU expansion"},2:{t:"Week 2: How We Work & Differentiation",d:"Show the process, challenge conventional advisory models"},3:{t:"Week 3: Industry & Sector Authority",d:"Demonstrate depth across manufacturing, regulation, and real outcomes"},4:{t:"Week 4: Vision, Team & CTA",d:"Humanize the brand, highlight location advantage, close with direct invitation"}};
+
+// ===== STATE =====
+const SK='mf_review_v2';
+let reviewer='';
+let state;
+
+function loadState(){try{state=JSON.parse(localStorage.getItem(SK))||{}}catch{state={}} if(!state.feedback)state.feedback={};if(!state.imageSelections)state.imageSelections={};if(!state.schedules)state.schedules={};return state}
+function saveState(){localStorage.setItem(SK,JSON.stringify(state))}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+
+// ===== WELCOME =====
+document.getElementById('reviewer-select').addEventListener('change',function(){document.getElementById('start-btn').disabled=!this.value});
+function startReview(){reviewer=document.getElementById('reviewer-select').value;if(!reviewer)return;document.getElementById('welcome').classList.add('hidden');document.getElementById('header-reviewer').textContent=reviewer;renderReview();updateCounts()}
+function switchReviewer(){document.getElementById('welcome').classList.remove('hidden');document.getElementById('reviewer-select').value='';document.getElementById('start-btn').disabled=true}
+
+// ===== TABS =====
+function switchTab(tab){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+tab));if(tab==='approved')renderApproved();if(tab==='calendar')renderCalendar()}
+
+// ===== IMAGE SELECTION =====
+function getSelectedImage(postId){return(state.imageSelections[postId]&&state.imageSelections[postId][reviewer])??0}
+function selectImage(postId,idx){if(!state.imageSelections[postId])state.imageSelections[postId]={};state.imageSelections[postId][reviewer]=idx;saveState();renderReview()}
+
+// ===== VOTING =====
+let pendingVotes={};
+function vote(pid,v){pendingVotes[pid]=v;const card=document.querySelector(`#post-${pid} .card-inner`);if(card){card.className='card-inner '+(v==='approve'?'status-approved':'status-rejected');card.querySelector('.vote-btn.approve').classList.toggle('active',v==='approve');card.querySelector('.vote-btn.reject').classList.toggle('active',v==='reject')}}
+
+function submitFeedback(pid){
+  const v=pendingVotes[pid];
+  if(!v){const existing=((state.feedback[pid])||[]).find(f=>f.reviewer===reviewer);if(!existing){toast('Please vote first');return}}
+  const notes=document.getElementById('notes-'+pid)?.value?.trim()||'';
+  if(!state.feedback[pid])state.feedback[pid]=[];
+  const idx=state.feedback[pid].findIndex(f=>f.reviewer===reviewer);
+  const entry={reviewer,vote:v||(idx>=0?state.feedback[pid][idx].vote:'approve'),notes,timestamp:new Date().toISOString(),selectedImage:getSelectedImage(pid)};
+  if(idx>=0)state.feedback[pid][idx]=entry;else state.feedback[pid].push(entry);
+  saveState();toast('Feedback saved for Post '+pid);pendingVotes={};renderReview();updateCounts()
+}
+
+// ===== SCHEDULING =====
+function getUsedDates(){const dates=new Set();Object.values(state.schedules).forEach(s=>{if(s.date)dates.add(s.date)});return dates}
+function schedulePost(pid){
+  const d=document.getElementById('sched-date-'+pid)?.value;const t=document.getElementById('sched-time-'+pid)?.value;
+  if(!d){toast('Pick a date first');return}
+  const used=getUsedDates();if(used.has(d)&&(!state.schedules[pid]||state.schedules[pid].date!==d)){toast('That date is already taken by another post');return}
+  state.schedules[pid]={date:d,time:t||'09:30',scheduledBy:reviewer,scheduledAt:new Date().toISOString()};
+  saveState();toast('Post '+pid+' scheduled for '+d);renderApproved();updateCounts()
+}
+
+// ===== RENDER: REVIEW TAB =====
+function renderReview(){
+  const c=document.getElementById('panel-review');c.innerHTML='';let cw=0;
+  posts.forEach(p=>{
+    if(p.week!==cw){cw=p.week;c.insertAdjacentHTML('beforeend',`<div class="week-header"><h2>${weekThemes[cw].t}</h2><p>${weekThemes[cw].d}</p></div>`)}
+    const pf=state.feedback[p.id]||[];const my=pf.find(f=>f.reviewer===reviewer);const si=getSelectedImage(p.id);
+    let sc='';if(my)sc=my.vote==='approve'?'status-approved':'status-rejected';
+    c.insertAdjacentHTML('beforeend',`
+    <div class="post-card" id="post-${p.id}"><div class="card-inner ${sc}"><div class="card-top">
+      <div class="card-image">
+        <img class="main-img" src="${p.thumbnails[si]}" alt="Post ${p.id}" onerror="this.style.background='var(--navy)'" />
+        <div class="image-select-strip">
+          ${p.thumbnails.map((t,i)=>`<div class="img-choice ${i===si?'selected':''}" onclick="selectImage(${p.id},${i})"><img src="${t}" alt="Option ${i+1}" onerror="this.parentElement.style.display='none'" /></div>`).join('')}
+        </div>
+        <div class="img-label">Choose your preferred image above</div>
+        <a class="canva-edit" href="${p.canvaLinks[si]}" target="_blank">Edit in Canva</a>
+      </div>
+      <div class="card-content">
+        <div class="post-meta">
+          <span class="meta-badge badge-num">Post ${p.id} &middot; ${p.date}</span>
+          <span class="meta-badge badge-type">${p.type}</span>
+          <span class="meta-badge badge-speaker">${p.speaker}</span>
+        </div>
+        <div class="post-hook">${p.hook}</div>
+        <div class="post-body">${p.body}</div>
+        <div class="post-hashtags">${p.hashtags}</div>
+        <div class="post-cta">${p.cta}</div>
+      </div>
+    </div>
+    <div class="card-feedback">
+      <div class="vote-buttons">
+        <button class="vote-btn approve ${my?.vote==='approve'?'active':''}" onclick="vote(${p.id},'approve')" title="Approve">&#x1F44D;</button>
+        <button class="vote-btn reject ${my?.vote==='reject'?'active':''}" onclick="vote(${p.id},'reject')" title="Needs changes">&#x1F44E;</button>
+      </div>
+      <div class="fb-input">
+        <textarea id="notes-${p.id}" placeholder="Add notes...">${my?.notes||''}</textarea>
+        <button class="save-fb" onclick="submitFeedback(${p.id})">Save</button>
+      </div>
+    </div>
+    ${pf.length?`<div class="prev-feedback"><h4>Team Feedback (${pf.length})</h4>${pf.map(f=>`<div class="fb-entry"><span class="fb-name">${f.reviewer}</span><span class="fb-vote">${f.vote==='approve'?'\u{1F44D}':'\u{1F44E}'}</span><span class="fb-note">${f.notes||'<em style="color:#bbb">No notes</em>'}</span><span class="fb-time">${new Date(f.timestamp).toLocaleDateString()}</span></div>`).join('')}</div>`:''}
+    </div></div>`);
+  });
+  updateCounts();
+}
+
+// ===== RENDER: APPROVED TAB =====
+function renderApproved(){
+  const c=document.getElementById('panel-approved');c.innerHTML='';
+  const approved=posts.filter(p=>{const pf=state.feedback[p.id]||[];return pf.some(f=>f.vote==='approve')});
+  if(!approved.length){c.innerHTML='<div class="cal-empty"><h3>No approved posts yet</h3><p>Review and approve posts in the Review tab to see them here.</p></div>';return}
+  const used=getUsedDates();
+  approved.forEach(p=>{
+    const si=getSelectedImage(p.id);const sched=state.schedules[p.id];
+    c.insertAdjacentHTML('beforeend',`
+    <div class="post-card"><div class="card-inner status-approved"><div class="card-top">
+      <div class="card-image">
+        <img class="main-img" src="${p.thumbnails[si]}" alt="Post ${p.id}" onerror="this.style.background='var(--navy)'" />
+        <a class="canva-edit" href="${p.canvaLinks[si]}" target="_blank">Edit in Canva</a>
+      </div>
+      <div class="card-content">
+        <div class="post-meta">
+          <span class="meta-badge badge-num">Post ${p.id}</span>
+          <span class="meta-badge badge-type">${p.type}</span>
+          <span class="meta-badge badge-speaker">${p.speaker}</span>
+          ${sched?`<span class="scheduled-badge">Scheduled: ${sched.date} at ${sched.time} CET</span>`:''}
+        </div>
+        <div class="post-hook">${p.hook}</div>
+        <div class="post-body">${p.body}</div>
+        <div class="post-hashtags">${p.hashtags}</div>
+      </div>
+    </div>
+    <div class="schedule-bar">
+      <label>Schedule:</label>
+      <input type="date" id="sched-date-${p.id}" value="${sched?.date||''}" min="2026-03-03" max="2026-03-31" />
+      <select id="sched-time-${p.id}">
+        ${OPTIMAL_TIMES.map(t=>`<option value="${t.value}" ${sched?.time===t.value?'selected':''}>${t.label}</option>`).join('')}
+      </select>
+      <button class="sched-save" onclick="schedulePost(${p.id})">Set Date</button>
+      ${sched?`<span class="scheduled-badge">Confirmed</span>`:''}
+    </div>
+    </div></div>`);
+  });
+}
+
+// ===== RENDER: CALENDAR =====
+function renderCalendar(){
+  const c=document.getElementById('panel-calendar');c.innerHTML='';
+  const scheduled=[];
+  Object.entries(state.schedules).forEach(([pid,s])=>{if(s.date){const p=posts.find(x=>x.id===+pid);if(p)scheduled.push({...p,schedDate:s.date,schedTime:s.time})}});
+
+  c.insertAdjacentHTML('beforeend',`
+    <div class="calendar-wrap">
+      <div class="cal-month">March 2026 - LinkedIn Content Calendar</div>
+      <div class="cal-legend">
+        <span><div class="legend-dot scheduled"></div> Scheduled</span>
+        <span><div class="legend-dot unscheduled"></div> Approved, not scheduled</span>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>`);
+
+  const grid=document.getElementById('cal-grid');
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d=>grid.insertAdjacentHTML('beforeend',`<div class="cal-header">${d}</div>`));
+
+  // March 2026 starts on Sunday. In Mon-first grid, we need 6 empty cells (Mon-Sat before Sun Mar 1)
+  // Actually: March 1, 2026 is a Sunday. getDay()=0. For Mon-first: offset = (0+6)%7 = 6
+  const startOffset=6;
+  for(let i=0;i<startOffset;i++)grid.insertAdjacentHTML('beforeend','<div class="cal-day other-month"></div>');
+
+  const today=new Date();const todayStr=today.toISOString().slice(0,10);
+  for(let d=1;d<=31;d++){
+    const dateStr=`2026-03-${String(d).padStart(2,'0')}`;
+    const isToday=dateStr===todayStr;
+    const dayPosts=scheduled.filter(p=>p.schedDate===dateStr);
+    const approvedUnscheduled=posts.filter(p=>{
+      const pf=state.feedback[p.id]||[];
+      return pf.some(f=>f.vote==='approve')&&!state.schedules[p.id]?.date
+    });
+
+    let postsHtml=dayPosts.map(p=>`<div class="cal-post" onclick="switchTab('approved')">${p.hook.substring(0,40)}...<span class="cal-time">${p.schedTime} CET</span></div>`).join('');
+
+    grid.insertAdjacentHTML('beforeend',`<div class="cal-day ${isToday?'today':''}"><div class="day-num">${d}</div>${postsHtml}</div>`);
+  }
+
+  // Summary below calendar
+  const approvedCount=posts.filter(p=>(state.feedback[p.id]||[]).some(f=>f.vote==='approve')).length;
+  const scheduledCount=scheduled.length;
+  c.insertAdjacentHTML('beforeend',`
+    <div class="calendar-wrap" style="margin-top:24px;padding-bottom:24px">
+      <div style="background:white;border-radius:12px;padding:24px;box-shadow:var(--shadow)">
+        <h3 style="color:var(--navy);font-size:16px;margin-bottom:16px">Month Status</h3>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;text-align:center">
+          <div style="padding:16px;background:var(--teal-light);border-radius:8px"><div style="font-size:28px;font-weight:700;color:var(--navy)">${approvedCount}/12</div><div style="font-size:12px;color:var(--text-light);margin-top:4px">Posts Approved</div></div>
+          <div style="padding:16px;background:${scheduledCount===approvedCount&&approvedCount>0?'#f0fff4':'#fffbeb'};border-radius:8px"><div style="font-size:28px;font-weight:700;color:${scheduledCount===approvedCount&&approvedCount>0?'var(--green)':'var(--yellow)'}">
+            ${scheduledCount}/${approvedCount}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px">Posts Scheduled</div></div>
+          <div style="padding:16px;background:${scheduledCount===12?'#f0fff4':'#fafbfc'};border-radius:8px"><div style="font-size:28px;font-weight:700;color:${scheduledCount===12?'var(--green)':'var(--navy)'}">
+            ${scheduledCount===12?'Ready':'In Progress'}</div><div style="font-size:12px;color:var(--text-light);margin-top:4px">Calendar Status</div></div>
+        </div>
+      </div>
+    </div>`);
+}
+
+// ===== COUNTS =====
+function updateCounts(){
+  let ap=0,re=0;
+  posts.forEach(p=>{const pf=state.feedback[p.id]||[];const my=pf.find(f=>f.reviewer===reviewer);if(my?.vote==='approve')ap++;if(my?.vote==='reject')re++});
+  document.getElementById('s-approved').textContent=ap;
+  document.getElementById('s-rejected').textContent=re;
+  document.getElementById('s-pending').textContent=12-ap-re;
+  document.getElementById('tc-review').textContent=12;
+  document.getElementById('tc-approved').textContent=ap;
+  const sched=Object.values(state.schedules).filter(s=>s.date).length;
+  document.getElementById('tc-calendar').textContent=sched;
+}
+
+// ===== EXPORT =====
+function exportFeedback(){
+  const out={exported:new Date().toISOString(),reviewer,feedback:state.feedback,imageSelections:state.imageSelections,schedules:state.schedules,posts:posts.map(p=>({id:p.id,week:p.week,date:p.date,type:p.type,speaker:p.speaker,hook:p.hook}))};
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`MarketFlow_Feedback_${reviewer.replace(/\s/g,'_')}_${new Date().toISOString().slice(0,10)}.json`;a.click();
+  toast('Feedback exported — save to your MarketFlow folder for sync');
+}
+function autoSyncFeedback(){
+  /* Builds a summary string and copies to clipboard for quick paste-to-sync */
+  const summary=[];
+  posts.forEach(p=>{
+    const pf=state.feedback[p.id]||[];
+    if(pf.length){
+      const votes=pf.map(f=>`${f.reviewer}: ${f.vote}${f.notes?' — '+f.notes:''}`).join(' | ');
+      const sched=state.schedules[p.id];
+      summary.push(`Post ${p.id} (${p.date}): ${votes}${sched?' [Scheduled: '+sched.date+' '+sched.time+']':''}`);
+    }
+  });
+  if(summary.length){
+    navigator.clipboard.writeText('MarketFlow Feedback Sync — '+new Date().toISOString()+'\n'+summary.join('\n')).then(()=>toast('Feedback summary copied to clipboard'));
+  }
+}
+
+// ===== INIT =====
+loadState();
+</script>
+</body>
+</html>
